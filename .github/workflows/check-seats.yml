@@ -1,0 +1,43 @@
+name: Check CMSC414 Seats Hourly
+
+on:
+  schedule:
+    - cron: '0 * * * *'          # Every hour on the hour (UTC)
+  workflow_dispatch:             # Lets you run manually from GitHub UI too
+
+permissions:
+  contents: write                # Allow workflow to push commits
+
+jobs:
+  check-seats:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+
+    - name: Run seat checker
+      env:
+        PUSHOVER_TOKEN: ${{ secrets.PUSHOVER_TOKEN }}
+        PUSHOVER_USER: ${{ secrets.PUSHOVER_USER }}
+      run: python check_seats.py
+
+    - name: Set up Git user
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Commit and push state file if changed
+      run: |
+        git add seats_state.txt
+        git diff --staged --quiet || (git commit -m "Update seats state" && git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/nkhur/testudo-classes-scraper.git HEAD:main)
